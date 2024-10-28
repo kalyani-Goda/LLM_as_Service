@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:13
+    container_name: grading-db
+    environment:
+      POSTGRES_DB: gradingdb
+      POSTGRES_USER: gradinguser
+      POSTGRES_PASSWORD: gradingpassword
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+    volumes:
+      - grading-db-data:/var/lib/postgresql/data
+
+  redis-server:
+    image: redis:latest
+    container_name: redis-server
+    ports:
+      - "6380:6379"
+    networks:
+      - app-network
+
+  django-server:
+    image: django-server
+    container_name: AI-django-server
+    build:
+      context: .
+      dockerfile: Dockerfile-django
+    ports:
+      - "8007:8000"
+    environment:
+      MODEL_DIRECTORY_PATH: /app/model
+      ADAPTER_PATH: /app/adapter
+      DEVICE: cuda:5
+      CELERY_BROKER_URL: redis://redis-server:6379/0
+      CELERY_RESULT_BACKEND: redis://redis-server:6379/0
+      DATABASE_URL: postgres://gradinguser:gradingpassword@grading-db:5432/gradingdb
+    volumes:
+      - /raid/ganesh/nagakalyani/Downloads/CodeLlama-7b-Instruct-hf:/app/model
+      - /raid/ganesh/nagakalyani/kalyani/Thesis_work/LLM_as_Service/llmpredictor/services/models/final_checkpoint:/app/adapter
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    depends_on:
+      - redis-server
+      - db
+    networks:
+      - app-network
+    command: >
+      sh -c "
+      python3 manage.py wait_for_db &&
+      python3 manage.py makemigrations llmpredictor &&
+      python3 manage.py migrate &&
+      gunicorn autograding_project.wsgi:application --bind 0.0.0.0:8000
+      "
+
+  streamlit-server:
+    image: streamlit-server
+    container_name: AI-streamlit-server
+    build:
+      context: .
+      dockerfile: Dockerfile-streamlit
+    ports:
+      - "8502:8501"
+    depends_on:
+      - django-server
+    networks:
+      - app-network
+
+  celery-worker:
+    image: django-server
+    container_name: celery-worker
+    command: celery -A autograding_project worker --loglevel=debug --pool=solo
+    environment:
+      MODEL_DIRECTORY_PATH: /app/model
+      ADAPTER_PATH: /app/adapter
+      DEVICE: cuda:5
+      CELERY_BROKER_URL: redis://redis-server:6379/0
+      CELERY_RESULT_BACKEND: redis://redis-server:6379/0
+      DATABASE_URL: postgres://gradinguser:gradingpassword@grading-db:5432/gradingdb
+    volumes:
+      - /raid/ganesh/nagakalyani/Downloads/CodeLlama-7b-Instruct-hf:/app/model
+      - /raid/ganesh/nagakalyani/kalyani/Thesis_work/LLM_as_Service/llmpredictor/services/models/final_checkpoint:/app/adapter
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    depends_on:
+      - redis-server
+      - db
+      - django-server
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  grading-db-data:

@@ -1,0 +1,27 @@
+# Ignore log files
+*.log
+
+# Ignore files in the tmp directory
+/tmp/*
+
+# Ignore configuration files
+config.json
+
+# Ignore all `.env` files
+*.env
+
+# Ignore specific folder
+llmpredictor/migrations/*
+!llmpredictor/migrations/__init__.py
+llmpredictor/services/models/*
+
+
+__pycache__
+submissions/*
+
+./llmpredictor/services/models/*
+
+db.sqlite3
+myenv/
+redis_local/
+token.pickle

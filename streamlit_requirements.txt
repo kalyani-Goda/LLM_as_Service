@@ -1,0 +1,10 @@
+streamlit
+requests
+google-api-python-client
+pandas
+email-validator
+google-auth 
+google-auth-oauthlib 
+google-auth-httplib2 
+oauth2client
+gunicorn
