@@ -13,7 +13,6 @@ config.json
 # Ignore specific folder
 llmpredictor/migrations/*
 !llmpredictor/migrations/__init__.py
-llmpredictor/services/models/*
 
 
 __pycache__
